@@ -1,118 +1,126 @@
-/**
- * Sample React Native App
- * https://github.com/facebook/react-native
- *
- * @format
- */
-
-import React from 'react';
-import type {PropsWithChildren} from 'react';
+import axios from 'axios';
+import React, {useState, useEffect, useCallback} from 'react';
 import {
-  SafeAreaView,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
   Text,
-  useColorScheme,
-  View,
+  SafeAreaView,
+  StyleSheet,
+  TextInput,
+  ActivityIndicator,
 } from 'react-native';
 
-import {
-  Colors,
-  DebugInstructions,
-  Header,
-  LearnMoreLinks,
-  ReloadInstructions,
-} from 'react-native/Libraries/NewAppScreen';
+export default function App() {
+  const api = 'https://jsonplaceholder.typicode.com/users';
+  const [results, setResults] = useState<Record<string, string>[]>([]);
+  const [error, setError] = useState(null);
+  const [query, setQuery] = useState('');
+  const [debounceQuery, setDebounceQuery] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [isLoading, setisloading] = useState(false);
 
-type SectionProps = PropsWithChildren<{
-  title: string;
-}>;
+  useEffect(() => {
+    const fetchApi = async () => {
+      try {
+        setLoading(true);
+        const res = await axios(api);
+        const result = await res.data;
+        // eslint-disable-next-line @typescript-eslint/no-shadow
+        const displayResult: {name: string}[] = result?.map((res: any) => ({
+          name: res.name,
+        }));
+        if (displayResult.length) {
+          setResults(displayResult);
+          setError('');
+        }
+      } catch (e: unknown) {
+        setError(e.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchApi();
+  }, []);
 
-function Section({children, title}: SectionProps): React.JSX.Element {
-  const isDarkMode = useColorScheme() === 'dark';
-  return (
-    <View style={styles.sectionContainer}>
-      <Text
-        style={[
-          styles.sectionTitle,
-          {
-            color: isDarkMode ? Colors.white : Colors.black,
-          },
-        ]}>
-        {title}
-      </Text>
-      <Text
-        style={[
-          styles.sectionDescription,
-          {
-            color: isDarkMode ? Colors.light : Colors.dark,
-          },
-        ]}>
-        {children}
-      </Text>
-    </View>
-  );
-}
-
-function App(): React.JSX.Element {
-  const isDarkMode = useColorScheme() === 'dark';
-
-  const backgroundStyle = {
-    backgroundColor: isDarkMode ? Colors.darker : Colors.lighter,
+  const debounce = (cb: Function, delay: number) => {
+    let timer: NodeJS.Timeout;
+    return (...args: any[]) => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        cb(...args);
+        setisloading(false);
+      }, delay);
+    };
   };
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const handleDebounceRes = useCallback(
+    debounce((text: string) => {
+      setDebounceQuery(text);
+    }, 800),
+    [],
+  );
+
+  const handleChange = (text: string) => {
+    setQuery(text);
+    handleDebounceRes(text);
+    setisloading(true);
+  };
+
+  const displayName = results?.filter(res => res.name.includes(debounceQuery));
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.safeAreaWrapper}>
+        <ActivityIndicator />
+      </SafeAreaView>
+    );
+  }
+
+  if (error) {
+    return (
+      <SafeAreaView style={styles.safeAreaWrapper}>
+        <Text>{error}</Text>
+      </SafeAreaView>
+    );
+  }
+
+  if (!displayName) {
+    return (
+      <SafeAreaView style={styles.safeAreaWrapper}>
+        <Text>No result found...</Text>
+      </SafeAreaView>
+    );
+  }
+
   return (
-    <SafeAreaView style={backgroundStyle}>
-      <StatusBar
-        barStyle={isDarkMode ? 'light-content' : 'dark-content'}
-        backgroundColor={backgroundStyle.backgroundColor}
+    <SafeAreaView style={styles.container}>
+      <Text>Search</Text>
+      <TextInput
+        value={query}
+        onChangeText={handleChange}
+        style={styles.textInput}
       />
-      <ScrollView
-        contentInsetAdjustmentBehavior="automatic"
-        style={backgroundStyle}>
-        <Header />
-        <View
-          style={{
-            backgroundColor: isDarkMode ? Colors.black : Colors.white,
-          }}>
-          <Section title="Step One">
-            Edit <Text style={styles.highlight}>App.tsx</Text> to change this
-            screen and then come back to see your edits.
-          </Section>
-          <Section title="See Your Changes">
-            <ReloadInstructions />
-          </Section>
-          <Section title="Debug">
-            <DebugInstructions />
-          </Section>
-          <Section title="Learn More">
-            Read the docs to discover what to do next:
-          </Section>
-          <LearnMoreLinks />
-        </View>
-      </ScrollView>
+      {isLoading && <ActivityIndicator />}
+      {displayName?.map((res, i) => (
+        <Text key={i}>{res.name}</Text>
+      ))}
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  sectionContainer: {
-    marginTop: 32,
-    paddingHorizontal: 24,
+  container: {
+    flex: 1,
+    padding: 8,
   },
-  sectionTitle: {
-    fontSize: 24,
-    fontWeight: '600',
+  textInput: {
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: 'black',
   },
-  sectionDescription: {
-    marginTop: 8,
-    fontSize: 18,
-    fontWeight: '400',
-  },
-  highlight: {
-    fontWeight: '700',
+  safeAreaWrapper: {
+    flex: 1,
+    paddingTop: 80,
+    alignItems: 'center',
+    padding: 8,
   },
 });
-
-export default App;
